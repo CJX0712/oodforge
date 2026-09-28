@@ -1,126 +1,107 @@
-"""core/types.py — 全局数据类型 (dataclass 契约).
+"""OODForge · core/types — 领域数据类型（dataclass 契约先行）。
 
-所有模块间流转的数据结构在此声明，保证跨模块公平评测与单一职责。
+作者: 晨星 (CJX0712)
+约定: 所有 OOD 打分器的 `score` 语义统一为「分数越大越 OOD」(越大越异常/越远离分布)。
+      calibrate 返回的是「越大越可信」的校准后概率（与 OOD 分数量纲相反，路由层负责对齐）。
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
 
 
 @dataclass
 class Dataset:
-    """一个简单数据集 (特征矩阵 + 可选标签)."""
+    """最小数据集容器。y 可为 None（纯无标签场景）。"""
 
     X: np.ndarray
     y: np.ndarray | None = None
-    name: str = "dataset"
 
     def __post_init__(self) -> None:
-        self.X = np.asarray(self.X, dtype=float)
+        self.X = np.asarray(self.X, dtype=np.float64)
         if self.y is not None:
             self.y = np.asarray(self.y)
-        if self.X.ndim != 2:
-            raise ValueError("Dataset.X 必须是二维 (n_samples, n_features)")
-
-    @property
-    def n_samples(self) -> int:
-        return int(self.X.shape[0])
-
-    @property
-    def n_features(self) -> int:
-        return int(self.X.shape[1])
 
 
 @dataclass
-class OODSplit:
-    """OOD 评测标准划分: ID 训练/验证/测试 + OOD 验证/测试.
-
-    约定: ood_* 样本标签在评测时统一视为正类 (y=1)，ID 为 y=0。
-    """
-
-    id_train: Dataset
-    id_val: Dataset
-    id_test: Dataset
-    ood_val: Dataset
-    ood_test: Dataset
-
-    @property
-    def n_classes(self) -> int:
-        return int(len(np.unique(self.id_train.y)))
-
-
-@dataclass
-class DetectionResult:
-    """单个检测器在一批样本上的输出.
-
-    ood_score 语义统一: **越大越 OOD** (与 AUROC 正类方向一致)。
-    """
+class OODScores:
+    """单个打分器在某批样本上的原始分数（越大越 OOD）。"""
 
     name: str
-    ood_score: np.ndarray
+    scores: np.ndarray  # shape (n_samples,)
 
     def __post_init__(self) -> None:
-        self.ood_score = np.asarray(self.ood_score, dtype=float).ravel()
+        self.scores = np.asarray(self.scores, dtype=np.float64).ravel()
 
 
 @dataclass
-class DetectorReport:
-    """检测器在 OOD 测试集上的评测指标."""
+class OODResult:
+    """一个打分器的 OOD 检测评测结果（ID vs OOD）。"""
 
     name: str
     auroc: float
-    aupr: float
-    fpr95: float  # FPR@95TPR
-
-    def as_row(self) -> dict:
-        return {
-            "detector": self.name,
-            "auroc": round(self.auroc, 4),
-            "aupr": round(self.aupr, 4),
-            "fpr95": round(self.fpr95, 4),
-        }
+    auprc: float
+    fpr95: float  # 在 95% TPR 处的假阳性率（越小越好）
+    mean_score_id: float
+    mean_score_ood: float
 
 
 @dataclass
-class CalibrationReport:
-    """校准器在 ID 验证/测试集上的指标."""
+class CalibResult:
+    """校准器评测：校准前/后 ECE。"""
 
     method: str
-    ece: float
     n_bins: int
-    available: bool = True
-
-    def as_row(self) -> dict:
-        return {
-            "method": self.method,
-            "ece": round(self.ece, 4),
-            "n_bins": self.n_bins,
-            "available": self.available,
-        }
+    ece_before: float
+    ece_after: float
+    nll_before: float | None = None
+    nll_after: float | None = None
 
 
 @dataclass
-class RouterReport:
-    """CCOR 路由器的选型与阈值决策."""
+class RouterResult:
+    """选择性预测路由结果。"""
 
-    selected_detector: str
-    selected_calibrator: str
-    val_auroc_of_selected: float
-    threshold_fpr95: float
-    runner_up: str = ""
-    fallback_used: bool = False
-    notes: str = ""
+    coverage: float  # ID 接受样本比例
+    selective_risk: float  # ID 接受样本上的错误率（越低越好）
+    abstain_rate: float  # ID 弃权比例 = 1 - coverage
+    threshold: float  # 触发弃权的 OOD 分数阈值
+    ood_abstain_rate: float = float("nan")  # OOD 样本被弃权比例（越高越好）
 
-    def as_row(self) -> dict:
+
+@dataclass
+class BenchmarkRecord:
+    """单条基准记录，便于落盘为 benchmark.json。"""
+
+    name: str
+    metric: str
+    value: float
+    note: str = ""
+
+
+@dataclass
+class PipelineConfig:
+    """端到端流水线配置。支持 ENV_OODFORGE_* 覆盖（见 core/config）。"""
+
+    random_state: int = 42
+    base_classifier: str = "logreg"  # logreg | rf
+    n_classes: int = 3
+    ensemble_trials: int = 24
+    calib_method: str = (
+        "temperature"  # temperature | vector | matrix | isotonic | platt
+    )
+    target_coverage: float = 0.90
+    use_optional_backends: bool = True
+
+    def to_dict(self) -> dict:
         return {
-            "selected_detector": self.selected_detector,
-            "selected_calibrator": self.selected_calibrator,
-            "val_auroc": round(self.val_auroc_of_selected, 4),
-            "threshold_fpr95": round(self.threshold_fpr95, 6),
-            "runner_up": self.runner_up,
-            "fallback_used": self.fallback_used,
-            "notes": self.notes,
+            "random_state": self.random_state,
+            "base_classifier": self.base_classifier,
+            "n_classes": self.n_classes,
+            "ensemble_trials": self.ensemble_trials,
+            "calib_method": self.calib_method,
+            "target_coverage": self.target_coverage,
+            "use_optional_backends": self.use_optional_backends,
         }

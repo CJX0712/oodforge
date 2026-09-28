@@ -1,97 +1,145 @@
-"""eval/metrics.py — OOD 评测指标 (AUROC / AUPR / FPR@95TPR)。
+"""OODForge · eval/metrics — 评测指标（AUROC/AUPRC/FPR95/ECE/选择性风险）。
 
-约定: 输入 ood_score (越大越 OOD), y 二值标签 (1=OOD, 0=ID)。
-sklearn 为首选后端; 缺失时退化为纯 numpy (Mann-Whitney AUROC + 线性插值 AUPR)。
+作者: 晨星 (CJX0712)
+注意: sklearn 指标导入改名 `_sk_*`，避免与作用域内同名函数递归调用（踩坑）。
+约定: y_true: 1=OOD, 0=ID。score 越大越 OOD。
 """
 
 from __future__ import annotations
 
 import numpy as np
 
+from ..core.errors import E101DataError
 
-def _try_sklearn():
-    try:
-        from sklearn.metrics import average_precision_score, roc_auc_score
+try:  # 可选后端
+    from sklearn import metrics as _sk_metrics
 
-        return roc_auc_score, average_precision_score
-    except Exception:
-        return None, None
-
-
-def auroc(scores: np.ndarray, y: np.ndarray) -> float:
-    scores = np.asarray(scores, dtype=float).ravel()
-    y = np.asarray(y).ravel().astype(int)
-    ra, pa = _try_sklearn()
-    if ra is not None:
-        return float(ra(y, scores))
-    # 纯 numpy Mann-Whitney AUROC
-    pos = scores[y == 1]
-    neg = scores[y == 0]
-    if len(pos) == 0 or len(neg) == 0:
-        return 0.5
-    order = np.argsort(scores, kind="mergesort")
-    ranks = np.empty(len(scores), dtype=float)
-    ranks[order] = np.arange(1, len(scores) + 1)
-    # 平均秩处理并列
-    sa = np.sort(scores, kind="mergesort")
-    dup = np.concatenate([[False], sa[1:] == sa[:-1]])
-    if dup.any():
-        sorted_ranks = ranks[order]
-        start = 0
-        for i in range(1, len(sa)):
-            if sa[i] != sa[i - 1]:
-                if i - start > 1:
-                    blk = sorted_ranks[start:i]
-                    sorted_ranks[start:i] = blk.mean()
-                start = i
-        if len(sa) - start > 1:
-            blk = sorted_ranks[start:]
-            sorted_ranks[start:] = blk.mean()
-        ranks = np.empty_like(ranks)
-        ranks[order] = sorted_ranks
-    n_pos = int((y == 1).sum())
-    n_neg = int((y == 0).sum())
-    sum_pos = ranks[y == 1].sum()
-    return float((sum_pos - n_pos * (n_pos + 1) / 2) / (n_pos * n_neg))
+    _HAVE_SK = True
+except Exception:  # noqa: BLE001
+    _sk_metrics = None
+    _HAVE_SK = False
 
 
-def aupr(scores: np.ndarray, y: np.ndarray) -> float:
-    scores = np.asarray(scores, dtype=float).ravel()
-    y = np.asarray(y).ravel().astype(int)
-    _, pa = _try_sklearn()
-    if pa is not None:
-        return float(pa(y, scores))
-    # 纯 numpy: 按阈值扫描计算 PR 曲线 (线性插值近似)
-    order = np.argsort(-scores, kind="mergesort")
-    y_sorted = y[order]
-    tp = np.cumsum(y_sorted)
-    fp = np.cumsum(1 - y_sorted)
-    prec = tp / np.maximum(tp + fp, 1)
-    rec = tp / max(int(y.sum()), 1)
-    # 去重 recall 点
-    idx = np.concatenate([[True], rec[1:] != rec[:-1]])
+def auroc(y_true: np.ndarray, score: np.ndarray) -> float:
+    y_true = np.asarray(y_true)
+    score = np.asarray(score)
+    if _HAVE_SK:
+        return float(_sk_metrics.roc_auc_score(y_true, score))
+    # 纯 numpy 实现（梯形法，按阈值排序）
+    order = np.argsort(score)
+    s_sorted = score[order]
+    # 秩平均处理并列
+    ranks = np.empty_like(score, dtype=float)
+    idx = 0
+    while idx < len(score):
+        j = idx
+        while j + 1 < len(score) and s_sorted[j + 1] == s_sorted[idx]:
+            j += 1
+        ranks[order[idx : j + 1]] = (idx + j) / 2.0 + 0.5
+        idx = j + 1
+    n_pos = y_true.sum()
+    n_neg = len(y_true) - n_pos
+    if n_pos == 0 or n_neg == 0:
+        return float("nan")
     return float(
-        np.trapezoid(prec[idx], rec[idx])
-        if hasattr(np, "trapezoid")
-        else np.trapz(prec[idx], rec[idx])
+        (ranks[y_true == 1].sum() - n_pos * (n_pos + 1) / 2.0) / (n_pos * n_neg)
     )
 
 
-def fpr95(scores: np.ndarray, y: np.ndarray) -> float:
-    """FPR@95TPR: 在 TPR=0.95 处 ID 被误判为 OOD 的比例。"""
-    scores = np.asarray(scores, dtype=float).ravel()
-    y = np.asarray(y).ravel().astype(int)
-    ood = scores[y == 1]
-    idn = scores[y == 0]
-    if len(ood) == 0 or len(idn) == 0:
-        return float("nan")
-    thr = np.percentile(ood, 5.0)  # 95% OOD 高于该阈值 → TPR=0.95
-    return float(np.mean(idn >= thr))
+def auprc(y_true: np.ndarray, score: np.ndarray) -> float:
+    y_true = np.asarray(y_true)
+    score = np.asarray(score)
+    if _HAVE_SK:
+        return float(_sk_metrics.average_precision_score(y_true, score))
+    order = np.argsort(-score)
+    y = y_true[order]
+    tp = np.cumsum(y)
+    fp = np.cumsum(1 - y)
+    prec = tp / (tp + fp + 1e-12)
+    rec = tp / (y.sum() + 1e-12)
+    return (
+        float(np.trapz(prec, rec))
+        if hasattr(np, "trapz")
+        else float(np.trapezoid(prec, rec))
+    )
 
 
-def evaluate(scores: np.ndarray, y: np.ndarray) -> dict:
-    return {
-        "auroc": round(auroc(scores, y), 4),
-        "aupr": round(aupr(scores, y), 4),
-        "fpr95": round(fpr95(scores, y), 4),
-    }
+def fpr_at_tpr(
+    y_true: np.ndarray, score: np.ndarray, tpr_target: float = 0.95
+) -> float:
+    """在给定 TPR 下的假阳性率（越小越好）。"""
+    y_true = np.asarray(y_true)
+    score = np.asarray(score)
+    if _HAVE_SK:
+        fpr, tpr, _ = _sk_metrics.roc_curve(y_true, score)
+        idx = np.searchsorted(tpr, tpr_target)
+        idx = min(idx, len(fpr) - 1)
+        return float(fpr[idx])
+    # numpy 实现
+    order = np.argsort(-score)
+    y = y_true[order]
+    n_pos = y.sum()
+    n_neg = len(y) - n_pos
+    tp = np.cumsum(y)
+    fp = np.cumsum(1 - y)
+    tpr = tp / (n_pos + 1e-12)
+    fpr = fp / (n_neg + 1e-12)
+    idx = np.searchsorted(tpr, tpr_target)
+    idx = min(idx, len(fpr) - 1)
+    return float(fpr[idx])
+
+
+def ece(probs: np.ndarray, y_true: np.ndarray, n_bins: int = 10) -> float:
+    """期望校准误差（等宽分箱）。probs: (n, k) 校准概率；y_true: (n,) 真实标签。"""
+    probs = np.asarray(probs, dtype=np.float64)
+    y_true = np.asarray(y_true)
+    if probs.ndim != 2 or len(y_true) != probs.shape[0]:
+        raise E101DataError("ece 需要 (n,k) 概率与 (n,) 标签")
+    conf = probs.max(axis=1)
+    pred = probs.argmax(axis=1)
+    correct = (pred == y_true).astype(float)
+    bins = np.linspace(0, 1, n_bins + 1)
+    bin_ids = np.clip(np.digitize(conf, bins) - 1, 0, n_bins - 1)
+    total = len(y_true)
+    score = 0.0
+    for b in range(n_bins):
+        mask = bin_ids == b
+        if mask.sum() == 0:
+            continue
+        acc = correct[mask].mean()
+        conf_mean = conf[mask].mean()
+        score += mask.sum() / total * abs(acc - conf_mean)
+    return float(score)
+
+
+def selective_risk_curve(
+    calib_conf: np.ndarray, is_correct: np.ndarray, coverages: np.ndarray | None = None
+) -> tuple[np.ndarray, np.ndarray]:
+    """给定校准置信与是否正确(1/0)，返回各覆盖率下的选择性风险与覆盖率。
+
+    return: (coverages, selective_risks)。接受「置信最高」的 1-coverage 部分。
+    """
+    conf = np.asarray(calib_conf, dtype=np.float64)
+    correct = np.asarray(is_correct, dtype=float)
+    order = np.argsort(-conf)
+    correct_s = correct[order]
+    cum_correct = np.cumsum(correct_s)
+    n = len(conf)
+    if coverages is None:
+        coverages = np.linspace(0.05, 1.0, 20)
+    risks = []
+    for c in coverages:
+        k = max(1, round(c * n))
+        k = min(k, n)
+        # 接受前 k 个（最高置信）
+        risks.append(1.0 - cum_correct[k - 1] / k)
+    return np.asarray(coverages), np.asarray(risks)
+
+
+def coverage_at_selective_risk(
+    calib_conf: np.ndarray, is_correct: np.ndarray, target_risk: float
+) -> float:
+    """达到目标选择性风险所需的最小覆盖率。"""
+    cov, risk = selective_risk_curve(calib_conf, is_correct)
+    idx = np.argmax(risk <= target_risk)
+    return float(cov[idx]) if risk[idx] <= target_risk else float(cov[-1])

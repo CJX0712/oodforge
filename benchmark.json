@@ -1,285 +1,259 @@
 {
-  "runs": [
+  "system": "OODForge",
+  "version": "0.1.0",
+  "author": "晨星 (CJX0712)",
+  "config": {
+    "random_state": 42,
+    "base_classifier": "logreg",
+    "n_classes": 3,
+    "ensemble_trials": 24,
+    "calib_method": "temperature",
+    "target_coverage": 0.9,
+    "use_optional_backends": true
+  },
+  "base_accuracy": 1.0,
+  "per_request_latency_ms": 5.553655000003346,
+  "ood_results": [
     {
-      "split": "synthetic_far",
-      "backend": "auto",
-      "n_classes": 3,
-      "n_features": 12,
-      "detectors": [
-        {
-          "detector": "msp",
-          "auroc": 0.8607,
-          "aupr": 0.89,
-          "fpr95": 0.735,
-          "ok": true
-        },
-        {
-          "detector": "energy",
-          "auroc": 0.3864,
-          "aupr": 0.4449,
-          "fpr95": 0.9975,
-          "ok": true
-        },
-        {
-          "detector": "mahalanobis",
-          "auroc": 1.0,
-          "aupr": 1.0,
-          "fpr95": 0.0,
-          "ok": true
-        },
-        {
-          "detector": "knn",
-          "auroc": 1.0,
-          "aupr": 1.0,
-          "fpr95": 0.0,
-          "ok": true
-        },
-        {
-          "detector": "ocsvm",
-          "auroc": 1.0,
-          "aupr": 1.0,
-          "fpr95": 0.0,
-          "ok": true
-        },
-        {
-          "detector": "tsmsp",
-          "auroc": 0.8678,
-          "aupr": 0.8957,
-          "fpr95": 0.7125,
-          "ok": true
-        },
-        {
-          "detector": "ccor(mahalanobis)",
-          "auroc": 1.0,
-          "aupr": 1.0,
-          "fpr95": 0.0,
-          "ok": true
-        }
-      ],
-      "router": {
-        "selected_detector": "mahalanobis",
-        "selected_calibrator": "matrix",
-        "val_auroc": 1.0,
-        "threshold_fpr95": 14.984751,
-        "runner_up": "knn",
-        "fallback_used": false,
-        "notes": "候选 7 个; 失败 []"
-      },
-      "calibration": {
-        "method": "matrix",
-        "ece_uncalibrated": 0.0038,
-        "ece_calibrated": 0.002,
-        "ece_reduction": 0.0018
-      },
-      "config": {
-        "random_state": 42,
-        "n_classes": 3,
-        "n_features": 12,
-        "id_train_size": 600,
-        "id_val_size": 200,
-        "id_test_size": 400,
-        "ood_val_size": 200,
-        "ood_test_size": 400,
-        "knn_k": 10,
-        "mahalanobis_reg": 0.001,
-        "fpr_target": 0.05,
-        "ece_bins": 15,
-        "n_bootstrap": 5,
-        "use_netcal": true,
-        "use_torch": true,
-        "verbose": false
-      }
+      "name": "mahalanobis",
+      "auroc": 0.9724999999999999,
+      "auprc": 0.9009009009009009,
+      "fpr95": 0.055,
+      "mean_score_id": 0.4205344438156783,
+      "mean_score_ood": 1.0
     },
     {
-      "split": "synthetic_near",
-      "backend": "auto",
-      "n_classes": 3,
-      "n_features": 12,
-      "detectors": [
-        {
-          "detector": "msp",
-          "auroc": 0.9941,
-          "aupr": 0.9929,
-          "fpr95": 0.0225,
-          "ok": true
-        },
-        {
-          "detector": "energy",
-          "auroc": 0.9939,
-          "aupr": 0.993,
-          "fpr95": 0.02,
-          "ok": true
-        },
-        {
-          "detector": "mahalanobis",
-          "auroc": 0.7052,
-          "aupr": 0.6292,
-          "fpr95": 0.73,
-          "ok": true
-        },
-        {
-          "detector": "knn",
-          "auroc": 0.3945,
-          "aupr": 0.4064,
-          "fpr95": 0.9,
-          "ok": true
-        },
-        {
-          "detector": "ocsvm",
-          "auroc": 0.028,
-          "aupr": 0.3092,
-          "fpr95": 1.0,
-          "ok": true
-        },
-        {
-          "detector": "tsmsp",
-          "auroc": 0.9941,
-          "aupr": 0.993,
-          "fpr95": 0.0225,
-          "ok": true
-        },
-        {
-          "detector": "ccor(energy)",
-          "auroc": 0.9939,
-          "aupr": 0.993,
-          "fpr95": 0.02,
-          "ok": true
-        }
-      ],
-      "router": {
-        "selected_detector": "energy",
-        "selected_calibrator": "matrix",
-        "val_auroc": 0.9979,
-        "threshold_fpr95": -2.988169,
-        "runner_up": "tsmsp",
-        "fallback_used": false,
-        "notes": "候选 7 个; 失败 []"
-      },
-      "calibration": {
-        "method": "matrix",
-        "ece_uncalibrated": 0.0038,
-        "ece_calibrated": 0.002,
-        "ece_reduction": 0.0018
-      },
-      "config": {
-        "random_state": 42,
-        "n_classes": 3,
-        "n_features": 12,
-        "id_train_size": 600,
-        "id_val_size": 200,
-        "id_test_size": 400,
-        "ood_val_size": 200,
-        "ood_test_size": 400,
-        "knn_k": 10,
-        "mahalanobis_reg": 0.001,
-        "fpr_target": 0.05,
-        "ece_bins": 15,
-        "n_bootstrap": 5,
-        "use_netcal": true,
-        "use_torch": true,
-        "verbose": false
-      }
+      "name": "energy",
+      "auroc": 0.8105249999999999,
+      "auprc": 0.729497604605597,
+      "fpr95": 1.0,
+      "mean_score_id": 0.3359135933402449,
+      "mean_score_ood": 0.8309163827055951
     },
     {
-      "split": "digits",
-      "backend": "auto",
-      "n_classes": 5,
-      "n_features": 64,
-      "detectors": [
-        {
-          "detector": "msp",
-          "auroc": 0.9465,
-          "aupr": 0.9752,
-          "fpr95": 0.2431,
-          "ok": true
-        },
-        {
-          "detector": "energy",
-          "auroc": 0.9707,
-          "aupr": 0.9861,
-          "fpr95": 0.1381,
-          "ok": true
-        },
-        {
-          "detector": "mahalanobis",
-          "auroc": 0.9322,
-          "aupr": 0.9422,
-          "fpr95": 0.2099,
-          "ok": true
-        },
-        {
-          "detector": "knn",
-          "auroc": 0.8742,
-          "aupr": 0.9094,
-          "fpr95": 0.337,
-          "ok": true
-        },
-        {
-          "detector": "ocsvm",
-          "auroc": 0.5921,
-          "aupr": 0.8172,
-          "fpr95": 0.9779,
-          "ok": true
-        },
-        {
-          "detector": "tsmsp",
-          "auroc": 0.973,
-          "aupr": 0.9878,
-          "fpr95": 0.1271,
-          "ok": true
-        },
-        {
-          "detector": "ccor(tsmsp)",
-          "auroc": 0.973,
-          "aupr": 0.9878,
-          "fpr95": 0.1271,
-          "ok": true
-        }
-      ],
-      "router": {
-        "selected_detector": "tsmsp",
-        "selected_calibrator": "matrix",
-        "val_auroc": 0.9489,
-        "threshold_fpr95": 0.662305,
-        "runner_up": "energy",
-        "fallback_used": false,
-        "notes": "候选 7 个; 失败 []"
-      },
-      "calibration": {
-        "method": "matrix",
-        "ece_uncalibrated": 0.0049,
-        "ece_calibrated": 0.0025,
-        "ece_reduction": 0.0024
-      },
-      "config": {
-        "random_state": 42,
-        "n_classes": 3,
-        "n_features": 12,
-        "id_train_size": 600,
-        "id_val_size": 200,
-        "id_test_size": 400,
-        "ood_val_size": 200,
-        "ood_test_size": 400,
-        "knn_k": 10,
-        "mahalanobis_reg": 0.001,
-        "fpr_target": 0.05,
-        "ece_bins": 15,
-        "n_bootstrap": 5,
-        "use_netcal": true,
-        "use_torch": true,
-        "verbose": false
-      }
+      "name": "entropy",
+      "auroc": 0.8093,
+      "auprc": 0.7280588389600382,
+      "fpr95": 1.0,
+      "mean_score_id": 0.3526947389590371,
+      "mean_score_ood": 0.8311147901775255
+    },
+    {
+      "name": "gmm",
+      "auroc": 0.9575,
+      "auprc": 0.8547008547008547,
+      "fpr95": 0.085,
+      "mean_score_id": 0.48661555012174673,
+      "mean_score_ood": 1.0
+    },
+    {
+      "name": "iforest",
+      "auroc": 0.9674999999999999,
+      "auprc": 0.8849557522123894,
+      "fpr95": 0.065,
+      "mean_score_id": 0.4942144668439879,
+      "mean_score_ood": 1.0
+    },
+    {
+      "name": "knn",
+      "auroc": 0.9662499999999999,
+      "auprc": 0.8810572687224669,
+      "fpr95": 0.0675,
+      "mean_score_id": 0.514088496334604,
+      "mean_score_ood": 1.0
+    },
+    {
+      "name": "ensemble",
+      "auroc": 0.97,
+      "auprc": 0.8928571428571429,
+      "fpr95": 0.06,
+      "mean_score_id": 0.46719295471884964,
+      "mean_score_ood": 1.0
     }
   ],
-  "aggregate": {
-    "msp": 0.9338,
-    "energy": 0.7837,
-    "mahalanobis": 0.8791,
-    "knn": 0.7562,
-    "ocsvm": 0.54,
-    "tsmsp": 0.945,
-    "ccor(mahalanobis)": 1.0,
-    "ccor(energy)": 0.9939,
-    "ccor(tsmsp)": 0.973
-  }
+  "calib_result": {
+    "method": "temperature",
+    "n_bins": 10,
+    "ece_before": 0.00020438683922885392,
+    "ece_after": 1.6018363924175105e-07,
+    "nll_before": null,
+    "nll_after": null
+  },
+  "router_result": {
+    "coverage": 0.9,
+    "selective_risk": 0.0,
+    "abstain_rate": 0.09999999999999998,
+    "threshold": 0.8894801197714903,
+    "ood_abstain_rate": 1.0
+  },
+  "records": [
+    {
+      "name": "base_classifier",
+      "metric": "id_test_accuracy",
+      "value": 1.0,
+      "note": "logreg"
+    },
+    {
+      "name": "calibration",
+      "metric": "ece_before(temperature)",
+      "value": 0.00020438683922885392,
+      "note": ""
+    },
+    {
+      "name": "calibration",
+      "metric": "ece_after(temperature)",
+      "value": 1.6018363924175105e-07,
+      "note": ""
+    },
+    {
+      "name": "router",
+      "metric": "coverage",
+      "value": 0.9,
+      "note": "target=0.9"
+    },
+    {
+      "name": "router",
+      "metric": "selective_risk",
+      "value": 0.0,
+      "note": "ID accepted"
+    },
+    {
+      "name": "router",
+      "metric": "ood_abstain_rate",
+      "value": 1.0,
+      "note": "OOD rejected"
+    },
+    {
+      "name": "router",
+      "metric": "per_request_latency_ms",
+      "value": 5.553655000003346,
+      "note": "ensemble score"
+    },
+    {
+      "name": "ood",
+      "metric": "auroc(mahalanobis)",
+      "value": 0.9724999999999999,
+      "note": ""
+    },
+    {
+      "name": "ood",
+      "metric": "auprc(mahalanobis)",
+      "value": 0.9009009009009009,
+      "note": ""
+    },
+    {
+      "name": "ood",
+      "metric": "fpr95(mahalanobis)",
+      "value": 0.055,
+      "note": ""
+    },
+    {
+      "name": "ood",
+      "metric": "auroc(energy)",
+      "value": 0.8105249999999999,
+      "note": ""
+    },
+    {
+      "name": "ood",
+      "metric": "auprc(energy)",
+      "value": 0.729497604605597,
+      "note": ""
+    },
+    {
+      "name": "ood",
+      "metric": "fpr95(energy)",
+      "value": 1.0,
+      "note": ""
+    },
+    {
+      "name": "ood",
+      "metric": "auroc(entropy)",
+      "value": 0.8093,
+      "note": ""
+    },
+    {
+      "name": "ood",
+      "metric": "auprc(entropy)",
+      "value": 0.7280588389600382,
+      "note": ""
+    },
+    {
+      "name": "ood",
+      "metric": "fpr95(entropy)",
+      "value": 1.0,
+      "note": ""
+    },
+    {
+      "name": "ood",
+      "metric": "auroc(gmm)",
+      "value": 0.9575,
+      "note": ""
+    },
+    {
+      "name": "ood",
+      "metric": "auprc(gmm)",
+      "value": 0.8547008547008547,
+      "note": ""
+    },
+    {
+      "name": "ood",
+      "metric": "fpr95(gmm)",
+      "value": 0.085,
+      "note": ""
+    },
+    {
+      "name": "ood",
+      "metric": "auroc(iforest)",
+      "value": 0.9674999999999999,
+      "note": ""
+    },
+    {
+      "name": "ood",
+      "metric": "auprc(iforest)",
+      "value": 0.8849557522123894,
+      "note": ""
+    },
+    {
+      "name": "ood",
+      "metric": "fpr95(iforest)",
+      "value": 0.065,
+      "note": ""
+    },
+    {
+      "name": "ood",
+      "metric": "auroc(knn)",
+      "value": 0.9662499999999999,
+      "note": ""
+    },
+    {
+      "name": "ood",
+      "metric": "auprc(knn)",
+      "value": 0.8810572687224669,
+      "note": ""
+    },
+    {
+      "name": "ood",
+      "metric": "fpr95(knn)",
+      "value": 0.0675,
+      "note": ""
+    },
+    {
+      "name": "ood",
+      "metric": "auroc(ensemble)",
+      "value": 0.97,
+      "note": ""
+    },
+    {
+      "name": "ood",
+      "metric": "auprc(ensemble)",
+      "value": 0.8928571428571429,
+      "note": ""
+    },
+    {
+      "name": "ood",
+      "metric": "fpr95(ensemble)",
+      "value": 0.06,
+      "note": ""
+    }
+  ]
 }

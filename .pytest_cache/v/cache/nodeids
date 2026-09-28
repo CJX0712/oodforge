@@ -1,0 +1,13 @@
+[
+  "tests/test_oodforge.py::test_calibration_reduces_ece",
+  "tests/test_oodforge.py::test_calibrators_rows_sum_one",
+  "tests/test_oodforge.py::test_ece_perfect_calib",
+  "tests/test_oodforge.py::test_energy_separable",
+  "tests/test_oodforge.py::test_ensemble_non_inferior",
+  "tests/test_oodforge.py::test_mahalanobis_ood_farther",
+  "tests/test_oodforge.py::test_metrics_auroc_separable",
+  "tests/test_oodforge.py::test_pipeline_end_to_end_runs",
+  "tests/test_oodforge.py::test_router_coverage_and_ood_reject",
+  "tests/test_oodforge.py::test_scorer_monotonicity",
+  "tests/test_oodforge.py::test_synthetic_no_leakage"
+]

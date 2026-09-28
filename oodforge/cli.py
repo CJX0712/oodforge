@@ -1,43 +1,80 @@
-"""cli.py — 命令行入口 (argparse)。
+"""OODForge · cli — 命令行入口（argparse）。
 
-用法:
-    python -m oodforge.cli --split synthetic_far
-    python -m oodforge.cli --demo --splits synthetic_far synthetic_near digits
+作者: 晨星 (CJX0712)
+子命令:
+  benchmark  运行端到端基准（生成数据 + 评测 + 落盘 JSON）
+  score      对外部数据（CSV/NPY）打分（需已训练的流水线，默认走基准）
 """
 
 from __future__ import annotations
 
 import argparse
 
-from .core.config import load_config
-from .examples.run_demo import main as demo_main
+from .core.types import PipelineConfig
+from .data.synthetic import make_benchmark_datasets
 from .pipeline.pipeline import OODPipeline
 
 
-def main() -> None:
-    ap = argparse.ArgumentParser(description="OODForge — 分布外检测与校准 CLI")
-    ap.add_argument("--split", default="synthetic_far")
-    ap.add_argument("--backend", default="auto", choices=["auto", "sklearn", "numpy"])
-    ap.add_argument(
-        "--calibrator", default="matrix", choices=["temperature", "vector", "matrix"]
+def _cmd_benchmark(args: argparse.Namespace) -> None:
+    cfg = PipelineConfig(
+        random_state=args.seed,
+        base_classifier=args.classifier,
+        n_classes=args.n_classes,
+        calib_method=args.calib,
+        target_coverage=args.coverage,
+        ensemble_trials=args.trials,
     )
-    ap.add_argument("--random-state", type=int, default=42)
-    ap.add_argument("--demo", action="store_true", help="跨多 split 基准")
-    ap.add_argument(
-        "--splits", nargs="+", default=["synthetic_far", "synthetic_near", "digits"]
+    ds = make_benchmark_datasets(
+        dim=args.dim,
+        n_classes=args.n_classes,
+        sep=args.sep,
+        seed=args.seed,
     )
-    args = ap.parse_args()
-
-    if args.demo:
-        demo_main()
-        return
-
-    cfg = load_config(random_state=args.random_state)
     pipe = OODPipeline(cfg)
-    run = pipe.run(args.split, backend=args.backend, calibrator=args.calibrator)
-    from .examples.run_demo import print_run
+    res = pipe.benchmark(ds)
+    if args.out:
+        import json
 
-    print_run(run)
+        payload = {
+            "system": "OODForge",
+            "author": "晨星 (CJX0712)",
+            "config": res["config"],
+            "base_accuracy": res["base_accuracy"],
+            "ood_results": [r.__dict__ for r in res["ood_results"]],
+            "calib_result": res["calib_result"].__dict__,
+            "router_result": res["router_result"].__dict__,
+            "records": [r.__dict__ for r in res["records"]],
+        }
+        with open(args.out, "w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False, indent=2)
+        print(f"[cli] 已写入 {args.out}")
+
+
+def build_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(prog="oodforge", description="OODForge CLI")
+    sub = p.add_subparsers(dest="cmd", required=True)
+
+    b = sub.add_parser("benchmark", help="运行端到端基准")
+    b.add_argument("--seed", type=int, default=42)
+    b.add_argument("--dim", type=int, default=10)
+    b.add_argument("--n-classes", type=int, default=3)
+    b.add_argument("--sep", type=float, default=4.0)
+    b.add_argument("--classifier", default="logreg", choices=["logreg", "rf"])
+    b.add_argument(
+        "--calib",
+        default="temperature",
+        choices=["temperature", "vector", "matrix", "isotonic"],
+    )
+    b.add_argument("--coverage", type=float, default=0.90)
+    b.add_argument("--trials", type=int, default=24)
+    b.add_argument("--out", default="benchmark.json")
+    b.set_defaults(func=_cmd_benchmark)
+    return p
+
+
+def main() -> None:
+    args = build_parser().parse_args()
+    args.func(args)
 
 
 if __name__ == "__main__":

@@ -1,158 +1,127 @@
-"""data/synthetic.py — 合成 ID/OOD 数据生成.
+"""OODForge · data/synthetic — 合成 ID / OOD 数据生成。
 
-设计要点 (踩坑: 数据泄漏/无难度梯度):
-- ID 与 OOD 同特征维度, 但 OOD 来自与 ID 类中心相距很远 (far) 或夹在类间 (near) 的分布,
-  保证检测器存在可学习的难度梯度, 而非字面重复 → 避免准确率虚高/路由永不降级。
-- 全部固定 random_state, 可复现。
+作者: 晨星 (CJX0712)
+设计要点（踩坑：防数据泄漏 / 难度梯度 / 类分布一致）:
+  - ID 的「类中心」由固定 salt 生成（与切分无关），train/val/test 共享同一类条件分布，
+    否则分类器学到错误映射（实测 ID-test 准确率塌到 0.045）。
+  - OOD 用远高斯 / 均匀 / 旋转中心 / 各向异性协方差，制造真实的分布外偏移。
+  - 各切分用不同 sample_seed 注入采样噪声，避免字面重复（防泄漏）。
 """
 
 from __future__ import annotations
 
 import numpy as np
 
-from ..core.config import Config
-from ..core.errors import err
-from ..core.types import Dataset, OODSplit
+from ..core.types import Dataset
+
+_CENTER_SALT = 12345  # 类中心的固定 salt：所有 ID 切分共享
 
 
-def _rng(seed: int) -> np.random.Generator:
-    return np.random.default_rng(seed)
+def _canonical_centers(dim: int, n_classes: int, sep: float, salt: int) -> np.ndarray:
+    rng = np.random.default_rng(salt)
+    return rng.normal(scale=sep, size=(n_classes, dim))
 
 
-def _class_centers(
-    n_classes: int, n_features: int, rng: np.random.Generator, scale: float = 5.0
-) -> np.ndarray:
-    """在特征空间放 n_classes 个互相分离的类中心。"""
-    raw = rng.standard_normal((n_classes, n_features))
-    norms = np.linalg.norm(raw, axis=1, keepdims=True)
-    norms[norms == 0] = 1.0
-    return raw / norms * scale
+def _rand_psd(dim: int, seed: int) -> np.ndarray:
+    rng = np.random.default_rng(seed)
+    A = rng.normal(size=(dim, dim))
+    return A @ A.T / dim + np.eye(dim) * 0.5
 
 
-def _sample_gmm(
+def _blobs(
+    n: int,
+    dim: int,
+    n_classes: int,
     centers: np.ndarray,
-    cov_scale: float,
-    n_per_class: list[int],
-    rng: np.random.Generator,
+    sample_seed: int,
+    anisotropic: bool = False,
+    rotate: bool = False,
 ) -> tuple[np.ndarray, np.ndarray]:
-    n_classes, n_features = centers.shape
-    X_parts: list[np.ndarray] = []
-    y_parts: list[int] = []
-    cov = np.eye(n_features) * cov_scale
-    for c, n in enumerate(n_per_class):
-        Xc = rng.multivariate_normal(centers[c], cov, size=n)
-        X_parts.append(Xc)
-        y_parts.extend([c] * n)
-    X = np.vstack(X_parts)
-    y = np.asarray(y_parts, dtype=int)
-    # 打乱
-    perm = rng.permutation(X.shape[0])
-    return X[perm], y[perm]
-
-
-def _make_id(cfg: Config, seed: int, centers: np.ndarray) -> Dataset:
-    rng = _rng(seed)
-    per = _balanced_sizes(cfg.id_train_size, cfg.n_classes)
-    X, y = _sample_gmm(centers, cov_scale=0.7, n_per_class=per, rng=rng)
-    return Dataset(X=X, y=y, name="id_train")
-
-
-def _make_ood_far(cfg: Config, seed: int, centers: np.ndarray, n: int | None = None) -> Dataset:
-    """远 OOD: 取一个远离所有 ID 中心的单高斯。"""
-    rng = _rng(seed)
-    n_features = cfg.n_features
-    n = n or cfg.ood_test_size
-    # 远离方向: 类中心法向方向的加权和 → 偏离 ID 支撑
-    direction = rng.standard_normal(n_features)
-    direction /= np.linalg.norm(direction) + 1e-12
-    far_center = direction * 16.0
-    cov = np.eye(n_features) * 2.5
-    X = rng.multivariate_normal(far_center, cov, size=n)
-    return Dataset(X=X, y=None, name="ood_far")
-
-
-def _make_ood_near(
-    cfg: Config, seed: int, centers: np.ndarray, n: int | None = None
-) -> Dataset:
-    """近 OOD: 夹在 ID 类中心之间的模糊混合。"""
-    rng = _rng(seed)
-    n = n or cfg.ood_test_size
-    mid = centers.mean(axis=0)
-    spread = centers.std(axis=0) * 0.6
-    X_parts = []
-    for _ in range(n):
-        base = mid + rng.standard_normal(cfg.n_features) * spread
-        X_parts.append(base)
-    X = np.asarray(X_parts)
-    return Dataset(X=X, y=None, name="ood_near")
-
-
-def _balanced_sizes(total: int, n_classes: int) -> list[int]:
-    base, rem = divmod(total, n_classes)
-    return [base + (1 if i < rem else 0) for i in range(n_classes)]
-
-
-def make_synthetic_split(cfg: Config, ood_kind: str = "far") -> OODSplit:
-    """构造合成 OODSplit。
-
-    ood_kind: 'far' | 'near' | 'mixed'。
-    """
-    if cfg.n_classes < 2:
-        raise err("E200", "n_classes 必须 >= 2")
-    rng = _rng(cfg.random_state)
-    centers = _class_centers(cfg.n_classes, cfg.n_features, rng)
-
-    id_train = _make_id(cfg, cfg.random_state + 1, centers)
-    id_val = Dataset(
-        *_split_pair(
-            _sample_gmm(
-                centers,
-                0.7,
-                _balanced_sizes(cfg.id_val_size, cfg.n_classes),
-                _rng(cfg.random_state + 2),
-            ),
-            "id_val",
-        )
-    )
-    id_test = Dataset(
-        *_split_pair(
-            _sample_gmm(
-                centers,
-                0.7,
-                _balanced_sizes(cfg.id_test_size, cfg.n_classes),
-                _rng(cfg.random_state + 3),
-            ),
-            "id_test",
-        )
-    )
-
-    if ood_kind == "far":
-        ood_val = _make_ood_far(cfg, cfg.random_state + 4, centers, cfg.ood_val_size)
-        ood_test = _make_ood_far(cfg, cfg.random_state + 5, centers, cfg.ood_test_size)
-    elif ood_kind == "near":
-        ood_val = _make_ood_near(cfg, cfg.random_state + 4, centers, cfg.ood_val_size)
-        ood_test = _make_ood_near(cfg, cfg.random_state + 5, centers, cfg.ood_test_size)
-    elif ood_kind == "mixed":
-        ood_val = _mix(cfg, cfg.random_state + 4, centers, cfg.ood_val_size)
-        ood_test = _mix(cfg, cfg.random_state + 5, centers, cfg.ood_test_size)
+    rng = np.random.default_rng(sample_seed)
+    y = rng.integers(0, n_classes, size=n)
+    if anisotropic:
+        covs = np.array([_rand_psd(dim, sample_seed + c) for c in range(n_classes)])
     else:
-        raise err("E200", f"未知 ood_kind={ood_kind}")
-    return OODSplit(
-        id_train=id_train, id_val=id_val, id_test=id_test, ood_val=ood_val, ood_test=ood_test
+        covs = np.array([np.eye(dim) for _ in range(n_classes)])
+    X = np.empty((n, dim))
+    for c in range(n_classes):
+        m = int(np.sum(y == c))
+        X[y == c] = rng.multivariate_normal(centers[c], covs[c], size=m)
+    if rotate:
+        R, _ = np.linalg.qr(rng.normal(size=(dim, dim)))
+        X = X @ R
+    return X, y
+
+
+def make_in_distribution(
+    n: int, dim: int, n_classes: int, seed: int, sep: float = 4.0
+) -> Dataset:
+    """分布内（ID）数据：高斯团，类中心固定（与 seed 无关），仅 sample_seed 控制采样。"""
+    centers = _canonical_centers(dim, n_classes, sep, _CENTER_SALT)
+    X, y = _blobs(n, dim, n_classes, centers, sample_seed=seed)
+    return Dataset(X=X, y=y)
+
+
+_OOD_KINDS = ("far_gauss", "uniform", "rotated", "anisotropic")
+
+
+def make_ood(
+    n: int,
+    dim: int,
+    n_classes: int,
+    seed: int,
+    kind: str | None = None,
+    sep: float = 4.0,
+) -> Dataset:
+    """分布外（OOD）数据。kind 为 None 时按 seed 轮询多种表面形式。"""
+    if kind is None:
+        kind = _OOD_KINDS[seed % len(_OOD_KINDS)]
+    centers = _canonical_centers(dim, n_classes, sep, _CENTER_SALT)
+    rng = np.random.default_rng(seed + 777)
+    if kind == "far_gauss":
+        far = rng.normal(scale=sep * 3.5, size=(n_classes, dim))
+        X = rng.multivariate_normal(far[0], np.eye(dim) * 2.0, size=n)
+        y = rng.integers(0, n_classes, size=n)
+    elif kind == "uniform":
+        X = rng.uniform(-sep * 4, sep * 4, size=(n, dim))
+        y = rng.integers(0, n_classes, size=n)
+    elif kind == "rotated":
+        R, _ = np.linalg.qr(rng.normal(size=(dim, dim)))
+        X, y = _blobs(n, dim, n_classes, centers @ R, sample_seed=seed + 13)
+    elif kind == "anisotropic":
+        X, y = _blobs(
+            n, dim, n_classes, centers, sample_seed=seed + 31, anisotropic=True
+        )
+    else:
+        raise ValueError(f"unknown ood kind: {kind}")
+    return Dataset(X=X, y=y)
+
+
+def make_benchmark_datasets(
+    dim: int = 10,
+    n_classes: int = 3,
+    sep: float = 4.0,
+    seed: int = 42,
+    n_train: int = 600,
+    n_val: int = 200,
+    n_test_id: int = 400,
+    n_ood: int = 400,
+) -> dict:
+    """返回完整基准数据集切分。各切分使用不同 sample_seed，避免泄漏。"""
+    id_train = make_in_distribution(n_train, dim, n_classes, seed=seed, sep=sep)
+    id_val = make_in_distribution(n_val, dim, n_classes, seed=seed + 101, sep=sep)
+    id_test = make_in_distribution(n_test_id, dim, n_classes, seed=seed + 202, sep=sep)
+    ood_a = make_ood(
+        n_ood // 2, dim, n_classes, seed=seed + 303, kind="far_gauss", sep=sep
     )
-
-
-def _mix(cfg: Config, seed: int, centers: np.ndarray, n: int | None = None) -> Dataset:
-    n = n or cfg.ood_test_size
-    half = n // 2
-    far = _make_ood_far(cfg, seed, centers, half)
-    near = _make_ood_near(cfg, seed + 100, centers, n - half)
-    X = np.vstack([far.X, near.X])
-    return Dataset(X=X, y=None, name="ood_mixed")
-
-
-def _split_pair(
-    xy: tuple[np.ndarray, np.ndarray], name: str
-) -> tuple[np.ndarray, np.ndarray, str]:
-    X, y = xy
-    return X, y, name
+    ood_b = make_ood(
+        n_ood // 2, dim, n_classes, seed=seed + 404, kind="uniform", sep=sep
+    )
+    X_ood = np.vstack([ood_a.X, ood_b.X])
+    y_ood = np.concatenate([ood_a.y, ood_b.y]) if ood_a.y is not None else None
+    return {
+        "id_train": id_train,
+        "id_val": id_val,
+        "id_test": id_test,
+        "ood": Dataset(X=X_ood, y=y_ood),
+    }
