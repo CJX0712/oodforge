@@ -1,0 +1,285 @@
+{
+  "runs": [
+    {
+      "split": "synthetic_far",
+      "backend": "auto",
+      "n_classes": 3,
+      "n_features": 12,
+      "detectors": [
+        {
+          "detector": "msp",
+          "auroc": 0.8607,
+          "aupr": 0.89,
+          "fpr95": 0.735,
+          "ok": true
+        },
+        {
+          "detector": "energy",
+          "auroc": 0.3864,
+          "aupr": 0.4449,
+          "fpr95": 0.9975,
+          "ok": true
+        },
+        {
+          "detector": "mahalanobis",
+          "auroc": 1.0,
+          "aupr": 1.0,
+          "fpr95": 0.0,
+          "ok": true
+        },
+        {
+          "detector": "knn",
+          "auroc": 1.0,
+          "aupr": 1.0,
+          "fpr95": 0.0,
+          "ok": true
+        },
+        {
+          "detector": "ocsvm",
+          "auroc": 1.0,
+          "aupr": 1.0,
+          "fpr95": 0.0,
+          "ok": true
+        },
+        {
+          "detector": "tsmsp",
+          "auroc": 0.8678,
+          "aupr": 0.8957,
+          "fpr95": 0.7125,
+          "ok": true
+        },
+        {
+          "detector": "ccor(mahalanobis)",
+          "auroc": 1.0,
+          "aupr": 1.0,
+          "fpr95": 0.0,
+          "ok": true
+        }
+      ],
+      "router": {
+        "selected_detector": "mahalanobis",
+        "selected_calibrator": "matrix",
+        "val_auroc": 1.0,
+        "threshold_fpr95": 14.984751,
+        "runner_up": "knn",
+        "fallback_used": false,
+        "notes": "候选 7 个; 失败 []"
+      },
+      "calibration": {
+        "method": "matrix",
+        "ece_uncalibrated": 0.0038,
+        "ece_calibrated": 0.002,
+        "ece_reduction": 0.0018
+      },
+      "config": {
+        "random_state": 42,
+        "n_classes": 3,
+        "n_features": 12,
+        "id_train_size": 600,
+        "id_val_size": 200,
+        "id_test_size": 400,
+        "ood_val_size": 200,
+        "ood_test_size": 400,
+        "knn_k": 10,
+        "mahalanobis_reg": 0.001,
+        "fpr_target": 0.05,
+        "ece_bins": 15,
+        "n_bootstrap": 5,
+        "use_netcal": true,
+        "use_torch": true,
+        "verbose": false
+      }
+    },
+    {
+      "split": "synthetic_near",
+      "backend": "auto",
+      "n_classes": 3,
+      "n_features": 12,
+      "detectors": [
+        {
+          "detector": "msp",
+          "auroc": 0.9941,
+          "aupr": 0.9929,
+          "fpr95": 0.0225,
+          "ok": true
+        },
+        {
+          "detector": "energy",
+          "auroc": 0.9939,
+          "aupr": 0.993,
+          "fpr95": 0.02,
+          "ok": true
+        },
+        {
+          "detector": "mahalanobis",
+          "auroc": 0.7052,
+          "aupr": 0.6292,
+          "fpr95": 0.73,
+          "ok": true
+        },
+        {
+          "detector": "knn",
+          "auroc": 0.3945,
+          "aupr": 0.4064,
+          "fpr95": 0.9,
+          "ok": true
+        },
+        {
+          "detector": "ocsvm",
+          "auroc": 0.028,
+          "aupr": 0.3092,
+          "fpr95": 1.0,
+          "ok": true
+        },
+        {
+          "detector": "tsmsp",
+          "auroc": 0.9941,
+          "aupr": 0.993,
+          "fpr95": 0.0225,
+          "ok": true
+        },
+        {
+          "detector": "ccor(energy)",
+          "auroc": 0.9939,
+          "aupr": 0.993,
+          "fpr95": 0.02,
+          "ok": true
+        }
+      ],
+      "router": {
+        "selected_detector": "energy",
+        "selected_calibrator": "matrix",
+        "val_auroc": 0.9979,
+        "threshold_fpr95": -2.988169,
+        "runner_up": "tsmsp",
+        "fallback_used": false,
+        "notes": "候选 7 个; 失败 []"
+      },
+      "calibration": {
+        "method": "matrix",
+        "ece_uncalibrated": 0.0038,
+        "ece_calibrated": 0.002,
+        "ece_reduction": 0.0018
+      },
+      "config": {
+        "random_state": 42,
+        "n_classes": 3,
+        "n_features": 12,
+        "id_train_size": 600,
+        "id_val_size": 200,
+        "id_test_size": 400,
+        "ood_val_size": 200,
+        "ood_test_size": 400,
+        "knn_k": 10,
+        "mahalanobis_reg": 0.001,
+        "fpr_target": 0.05,
+        "ece_bins": 15,
+        "n_bootstrap": 5,
+        "use_netcal": true,
+        "use_torch": true,
+        "verbose": false
+      }
+    },
+    {
+      "split": "digits",
+      "backend": "auto",
+      "n_classes": 5,
+      "n_features": 64,
+      "detectors": [
+        {
+          "detector": "msp",
+          "auroc": 0.9465,
+          "aupr": 0.9752,
+          "fpr95": 0.2431,
+          "ok": true
+        },
+        {
+          "detector": "energy",
+          "auroc": 0.9707,
+          "aupr": 0.9861,
+          "fpr95": 0.1381,
+          "ok": true
+        },
+        {
+          "detector": "mahalanobis",
+          "auroc": 0.9322,
+          "aupr": 0.9422,
+          "fpr95": 0.2099,
+          "ok": true
+        },
+        {
+          "detector": "knn",
+          "auroc": 0.8742,
+          "aupr": 0.9094,
+          "fpr95": 0.337,
+          "ok": true
+        },
+        {
+          "detector": "ocsvm",
+          "auroc": 0.5921,
+          "aupr": 0.8172,
+          "fpr95": 0.9779,
+          "ok": true
+        },
+        {
+          "detector": "tsmsp",
+          "auroc": 0.973,
+          "aupr": 0.9878,
+          "fpr95": 0.1271,
+          "ok": true
+        },
+        {
+          "detector": "ccor(tsmsp)",
+          "auroc": 0.973,
+          "aupr": 0.9878,
+          "fpr95": 0.1271,
+          "ok": true
+        }
+      ],
+      "router": {
+        "selected_detector": "tsmsp",
+        "selected_calibrator": "matrix",
+        "val_auroc": 0.9489,
+        "threshold_fpr95": 0.662305,
+        "runner_up": "energy",
+        "fallback_used": false,
+        "notes": "候选 7 个; 失败 []"
+      },
+      "calibration": {
+        "method": "matrix",
+        "ece_uncalibrated": 0.0049,
+        "ece_calibrated": 0.0025,
+        "ece_reduction": 0.0024
+      },
+      "config": {
+        "random_state": 42,
+        "n_classes": 3,
+        "n_features": 12,
+        "id_train_size": 600,
+        "id_val_size": 200,
+        "id_test_size": 400,
+        "ood_val_size": 200,
+        "ood_test_size": 400,
+        "knn_k": 10,
+        "mahalanobis_reg": 0.001,
+        "fpr_target": 0.05,
+        "ece_bins": 15,
+        "n_bootstrap": 5,
+        "use_netcal": true,
+        "use_torch": true,
+        "verbose": false
+      }
+    }
+  ],
+  "aggregate": {
+    "msp": 0.9338,
+    "energy": 0.7837,
+    "mahalanobis": 0.8791,
+    "knn": 0.7562,
+    "ocsvm": 0.54,
+    "tsmsp": 0.945,
+    "ccor(mahalanobis)": 1.0,
+    "ccor(energy)": 0.9939,
+    "ccor(tsmsp)": 0.973
+  }
+}

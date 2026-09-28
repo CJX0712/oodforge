@@ -1,0 +1,6 @@
+{
+  "tests/test_detectors.py::test_msp_orientation": true,
+  "tests/test_detectors.py::test_energy_orientation": true,
+  "tests/test_detectors.py::test_tsmsp_finite_and_oriented": true,
+  "tests/test_router.py::test_router_fallback_to_msp": true
+}

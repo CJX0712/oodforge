@@ -1,0 +1,10 @@
+# OODForge 运行依赖 (CPU / 离线优先)
+# 核心: 始终可用 (纯 numpy/scipy/sklearn 兜底链路)
+numpy
+scipy
+scikit-learn
+# 测试
+pytest
+
+# 可选 SOTA 校准后端 (netcal): 缺失时自动降级纯 numpy 温度/向量/矩阵缩放
+# 单独安装: pip install netcal
