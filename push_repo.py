@@ -19,7 +19,7 @@ REPO = "CJX0712/oodforge"
 REPO_DIR = Path(__file__).resolve().parent
 DESCRIPTION = "OODForge · 分布外检测与概率校准系统 (CPU/离线可运行, CCOR 自适应路由). 作者 晨星"
 AUTHOR = {"name": "晨星", "email": "CJX0712@users.noreply.github.com"}
-EXCLUDE_DIRS = {".git", ".venv", "venv", "envs", "__pycache__"}
+EXCLUDE_DIRS = {".git", ".venv", "venv", "envs", "__pycache__", ".pytest_cache", ".ruff_cache", "htmlcov", ".coverage"}
 EXCLUDE_EXT = {".pyc"}
 
 RETRY_KEYS = ("bad gateway", "502", "503", "reset", "timed out", "connection reset", "unexpected end of json")
